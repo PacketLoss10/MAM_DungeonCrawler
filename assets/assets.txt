@@ -1,0 +1,4 @@
+goblinmagespritesheet.png
+goblinmagewalkspritesheet.png
+logo.png
+ninja.png
