@@ -23,6 +23,7 @@ import com.badlogic.gdx.math.Vector
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.utils.Null
 import com.sun.org.apache.xpath.internal.operations.Bool
+import jdk.internal.vm.vector.VectorSupport
 import org.w3c.dom.Text
 import kotlin.collections.flatten
 import kotlin.math.atan2
@@ -31,6 +32,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.random.Random
 
 class main : KtxGame<KtxScreen>()
 {
@@ -112,7 +114,7 @@ class Animation2D : Disposable
 
         this.dt = min(1f, dt)
 
-        val split = TextureRegion.split(this.sheet, 1152 / this.columns, 96 / this.rows)
+        val split = TextureRegion.split(this.sheet, this.sheet.width / this.columns, this.sheet.height / this.rows)
         var frames = com.badlogic.gdx.utils.Array<TextureRegion>()
 
         println(this.rows)
@@ -159,7 +161,11 @@ class AnimationPlayer : Disposable
     {
         this.defaultAnimation = defaultAnimation
     }
-    public var defaultAnimation : Animation2D = Animation2D(1, 1, "", 1f)
+
+    constructor()
+    {
+    }
+    public var defaultAnimation : Animation2D = Animation2D(1, 1, "nulltexture.png", 1f)
     public var animationSet : MutableMap<String, Animation2D> = mutableMapOf<String, Animation2D>()
     public var currentAnimation : Animation2D? = null
 
@@ -177,9 +183,14 @@ class AnimationPlayer : Disposable
         else currentAnimation = defaultAnimation
     }
 
+    public fun getCurrentFrame() : TextureRegion
+    {
+        return currentAnimation!!.getCurrentFrame()
+    }
+
     public fun update()
     {
-
+        currentAnimation!!.update()
     }
 
     override public fun dispose()
@@ -200,19 +211,61 @@ operator fun AnimationPlayer.get(name: String) : Animation2D
     else return defaultAnimation
 }
 
+operator fun Vector2.times(other : Float) : Vector2
+{
+    return Vector2(x * other, y * other)
+}
+
+class CharacterBase
+{
+    public var sprite : AnimationPlayer = AnimationPlayer()
+
+    public var transform : Transform2D = Transform2D()
+
+    public var speed : Float = 500f
+
+    constructor(sprite : AnimationPlayer, transform : Transform2D)
+    {
+        this.sprite = sprite
+        this.transform = transform
+    }
+
+    public fun input(delta: Float)
+    {
+        if(Gdx.input.isKeyPressed(Input.Keys.W))
+        {
+            transform.move(Vector2(0f, 1f) * speed * delta)
+        }
+        if(Gdx.input.isKeyPressed(Input.Keys.A))
+        {
+            transform.move(Vector2(-1f, 0f) * speed * delta)
+        }
+        if(Gdx.input.isKeyPressed(Input.Keys.S))
+        {
+            transform.move(Vector2(0f, -1f) * speed * delta)
+        }
+        if(Gdx.input.isKeyPressed(Input.Keys.D))
+        {
+            transform.move(Vector2(1f, 0f) * speed * delta)
+        }
+    }
+}
+
 class FirstScreen : KtxScreen
 {
     private val image = Texture("logo.png".toInternalFile(), true).apply { setFilter(Linear, Linear) }
-    private val animation = Animation2D(12, 1, "goblinmagespritesheet.png", 0.08f)
+    private var goblinSprite : AnimationPlayer = AnimationPlayer(Animation2D(12, 1, "goblinmagespritesheet.png", 0.08f))
 
-    private var goblin : AnimationPlayer = AnimationPlayer(animation)
+    private var goblin : CharacterBase = CharacterBase(goblinSprite, Transform2D())
 
     init
     {
-        goblin.addAnimation("idle", Animation2D(12, 1, "goblinmagespritesheet.png", 0.08f))
-        goblin.addAnimation("walk", Animation2D(8, 1, "goblinmagewalkspritesheet.png", 0.08f))
+        goblinSprite.addAnimation("idle", Animation2D(12, 1, "goblinmagespritesheet.png", 0.08f))
+        goblinSprite.addAnimation("walk", Animation2D(8, 1, "goblinmagewalkspritesheet.png", 0.08f))
 
-        goblin.setCurrent("walk")
+        goblinSprite.setCurrent("walk")
+
+        goblin = CharacterBase(goblinSprite, Transform2D())
     }
 
     private val batch = SpriteBatch()
@@ -222,21 +275,21 @@ class FirstScreen : KtxScreen
         input(delta)
         clearScreen(red = 0.7f, green = 0.7f, blue = 0.7f)
 
-        animation.update()
+        goblin.sprite.update()
         batch.use {
-            it.draw(animation.getCurrentFrame(), 300f, 300f, 1000f, 1000f)
+            it.draw(goblin.sprite.getCurrentFrame(), goblin.transform.position.x, goblin.transform.position.y, 1000f, 1000f)
             it.draw(image, 100f, 160f)
         }
     }
 
     private fun input(delta: Float)
     {
-
+        goblin.input(delta)
     }
 
     override fun dispose()
     {
-        animation.dispose()
+        goblin.sprite.dispose()
         image.disposeSafely()
         batch.disposeSafely()
     }
