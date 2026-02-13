@@ -19,6 +19,7 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.g2d.Animation
+import com.badlogic.gdx.input.GestureDetector
 import com.badlogic.gdx.math.Vector
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.utils.Null
@@ -89,6 +90,59 @@ class main : KtxGame<KtxScreen>()
 //        else Vec2(0f, 0f)
 //    }
 //}
+
+class JoyStick : GestureDetector.GestureListener
+{
+    public var screenPosition : Vector2 = Vector2(100f, 100f)
+    public var forwardVector : Vector2 = Vector2()
+
+    override fun touchDown(x: Float, y: Float, pointer: Int, button: Int): Boolean
+    {
+        return false
+    }
+
+    override fun tap(x: Float, y: Float, count: Int, button: Int): Boolean
+    {
+        return false
+    }
+
+    override fun longPress(x: Float, y: Float): Boolean
+    {
+        return false
+    }
+
+    override fun fling(velocityX: Float, velocityY: Float, button: Int): Boolean
+    {
+        return false
+    }
+
+    override fun pan(x: Float, y: Float, deltaX: Float, deltaY: Float): Boolean
+    {
+        this.forwardVector = Vector2(x - this.screenPosition.x, y - this.screenPosition.y).nor()
+        return true
+    }
+
+    override fun panStop(x: Float, y: Float, pointer: Int, button: Int): Boolean
+    {
+        this.forwardVector = Vector2(0f, 0f)
+        return true
+    }
+
+    override fun zoom(initialDistance: Float, distance: Float): Boolean
+    {
+        return false
+    }
+
+    override fun pinch(initialPointer1: Vector2?, initialPointer2: Vector2?, pointer1: Vector2?, pointer2: Vector2?): Boolean
+    {
+        return false
+    }
+
+    override fun pinchStop()
+    {
+    }
+
+}
 
 class Transform2D(var position : Vector2 = Vector2(0f, 0f), var forward : Vector2 = Vector2(1f, 0f), var scale : Vector2 = Vector2(1f, 1f))
 {
@@ -224,10 +278,18 @@ class CharacterBase
 
     public var speed : Float = 500f
 
+    public var joystick : JoyStick = JoyStick()
+
     constructor(sprite : AnimationPlayer, transform : Transform2D)
     {
         this.sprite = sprite
         this.transform = transform
+    }
+
+    public fun update(delta: Float)
+    {
+        println("("+joystick.forwardVector.x+", "+joystick.forwardVector.y+")")
+        transform.move(joystick.forwardVector * speed * delta)
     }
 
     public fun input(delta: Float)
@@ -254,7 +316,10 @@ class CharacterBase
 class FirstScreen : KtxScreen
 {
     private val image = Texture("logo.png".toInternalFile(), true).apply { setFilter(Linear, Linear) }
+
     private var goblinSprite : AnimationPlayer = AnimationPlayer(Animation2D(12, 1, "goblinmagespritesheet.png", 0.08f))
+
+    private var input : JoyStick = JoyStick()
 
     private var goblin : CharacterBase = CharacterBase(goblinSprite, Transform2D())
 
@@ -266,6 +331,8 @@ class FirstScreen : KtxScreen
         goblinSprite.setCurrent("walk")
 
         goblin = CharacterBase(goblinSprite, Transform2D())
+
+        Gdx.input.inputProcessor = GestureDetector(goblin.joystick)
     }
 
     private val batch = SpriteBatch()
@@ -275,6 +342,7 @@ class FirstScreen : KtxScreen
         input(delta)
         clearScreen(red = 0.7f, green = 0.7f, blue = 0.7f)
 
+        goblin.update(delta)
         goblin.sprite.update()
         batch.use {
             it.draw(goblin.sprite.getCurrentFrame(), goblin.transform.position.x, goblin.transform.position.y, 1000f, 1000f)
